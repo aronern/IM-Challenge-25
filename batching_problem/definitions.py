@@ -103,155 +103,6 @@ class Instance:
     def __init__(self,id) -> None:
         self.id = id
         self.batches = []
-        
-        
-    def plot_warehouse(self):
-        if not self.batches:
-            logger.warning("No batches available to plot.")
-            return
-
-        colors = [
-        "red", "green", "orange", "purple", "brown", "pink", "gray", "cyan", "magenta"
-        ]
-        
-        # Gruppiere WarehouseItems nach Zonen
-        items_by_zone = {}
-        for item in self.warehouse_items:
-            if item.zone not in items_by_zone:
-                items_by_zone[item.zone] = []
-            items_by_zone[item.zone].append(item)
-            
-        # Sortiere die Zonen: "zone-0" zuerst, dann aufsteigend
-        sorted_zones = sorted(items_by_zone.keys(), key=lambda z: int(z.split("-")[1]))
-
-        # Erstelle die Hauptfigur
-        fig = go.Figure()
-
-        # Füge Artikelpositionen und Routen für jede Zone hinzu
-        buttons = []
-        trace_zone_list = []  # Liste, um die Sichtbarkeit der Spuren zu verwalten
-        for zone, items in items_by_zone.items():
-            # Artikelpositionen
-            x_positions = [item.row for item in items]  # Row wird jetzt x-Achse
-            y_positions = [item.aisle for item in items]  # Aisle wird jetzt y-Achse
-            item_ids = [item.id for item in items]
-
-            # Scatter-Plot für Artikel
-            fig.add_trace(
-                go.Scatter(
-                    x=x_positions,
-                    y=y_positions,
-                    mode="markers",
-                    marker=dict(size=5, color="blue"),
-                    text=item_ids,
-                    name=f"{zone} Items",
-                    visible=False,  # Standardmäßig unsichtbar
-                )
-            )
-            trace_zone_list.append(zone)  # Standardmäßig unsichtbar
-
-        color_index = 0  # Index für die Farben
-        # Routen
-        for batch_number,batch in enumerate(self.batches):
-            for pick_number,picklist in enumerate(batch.picklists):      
-                conveyor = WarehouseItem("conveyor", 0, 0, None, picklist[0].zone)
-                route_x=[conveyor.row]
-                route_y=[conveyor.aisle]
-                item_x=[conveyor.row]
-                item_y=[conveyor.aisle]
-                item_number=["conveyor"]
-                for number,item in enumerate(picklist):
-                    if item.zone != conveyor.zone:
-                        logger.warning(f"Item {item.id} is not in zone {conveyor.zone}. Skipping.")
-                        continue
-                    if(item_y[-1] == item.aisle):
-                        route_x.append(item.row)
-                        route_y.append(item.aisle)
-                    else:
-                        if((item_x[-1]+item.row)/2)>25:
-                            route_x.extend([50,50,item.row])
-                            route_y.extend([item_y[-1],item.aisle,item.aisle])
-                        elif((item_x[-1]+item.row)/2)<-25:
-                            route_x.extend([-50,-50,item.row])
-                            route_y.extend([item_y[-1],item.aisle,item.aisle])
-                        else:
-                            route_x.extend([0,0,item.row])
-                            route_y.extend([item_y[-1],item.aisle,item.aisle])
-                    item_x.append(item.row)
-                    item_y.append(item.aisle)
-                    item_number.append(number+1)
-                    
-                route_x = route_x + [conveyor.row, conveyor.row]
-                route_y = route_y + [route_y[-1], conveyor.aisle]
-
-                # Wähle die aktuelle Farbe und inkrementiere den Index
-                color = colors[color_index % len(colors)]
-                color_index += 1
-
-                fig.add_traces([
-                    go.Scatter(
-                        x=route_x,
-                        y=route_y,
-                        mode="lines",
-                        line=dict(width=2,color=color),
-                        name=f"Route Batch {batch_number} cost:{self.picklist_cost(picklist)}",
-                        visible=False,  # Standardmäßig unsichtbar
-                        legendgroup=f"Batch {batch_number}, Picklist {pick_number}",
-                        legendgrouptitle_text=f"Batch {batch_number}, Picklist {pick_number}",
-                    ),
-                    go.Scatter(
-                        x=item_x,
-                        y=item_y,
-                        mode="markers+text",
-                        marker=dict(size=6, color=color),
-                        text=item_number,
-                        textposition="top center",
-                        name=f"Items Batch {batch_number} ",
-                        visible=False,  # Standardmäßig unsichtbar
-                        legendgroup=f"Batch {batch_number}, Picklist {pick_number}",
-                        legendgrouptitle_text=f"Batch {batch_number}, Picklist {pick_number}",
-                )]
-                )
-                
-                trace_zone_list.extend([conveyor.zone,conveyor.zone]) 
-
-        
-        for zone in sorted_zones:
-            # Dropdown-Button für die aktuelle Zone
-            zone_visibility = [num == zone for num in trace_zone_list]
-            buttons.append(
-                dict(
-                    label=f"{zone}",
-                    method="update",
-                    args=[
-                        {"visible": zone_visibility},
-                        {"title": f"Warehouse Visualization {self.id}- {zone}"},
-                    ],
-                )
-            )
-
-        # Dropdown-Menü hinzufügen
-        fig.update_layout(
-            updatemenus=[
-                dict(
-                    active=0,
-                    buttons=buttons,
-                    direction="down",
-                    showactive=True,
-                )
-            ]
-        )
-
-        # Layout-Einstellungen
-        fig.update_layout(
-        title=f"Warehouse Visualization {self.id}",
-        xaxis=dict(title="Row", range=[-50, 50]),  # X-Achse von -50 bis 50
-        yaxis=dict(title="Aisle", range=[-50, 50]),  # Y-Achse von -50 bis 50
-        showlegend=True,
-        )
-
-        # Zeige die Grafik
-        fig.show()
 
     def write(self, directory):
         serializable_instance = self.to_serializable()
@@ -420,3 +271,151 @@ class Instance:
             objective_value=objective_value,
             feasible=feasible,
         )
+        
+    def plot_warehouse(self):
+        if not self.batches:
+            logger.warning("No batches available to plot.")
+            return
+
+        colors = [
+        "red", "green", "orange", "purple", "brown", "pink", "gray", "cyan", "magenta"
+        ]
+        
+        # Gruppiere WarehouseItems nach Zonen
+        items_by_zone = {}
+        for item in self.warehouse_items:
+            if item.zone not in items_by_zone:
+                items_by_zone[item.zone] = []
+            items_by_zone[item.zone].append(item)
+            
+        # Sortiere die Zonen: "zone-0" zuerst, dann aufsteigend
+        sorted_zones = sorted(items_by_zone.keys(), key=lambda z: int(z.split("-")[1]))
+
+        # Erstelle die Hauptfigur
+        fig = go.Figure()
+
+        # Füge Artikelpositionen und Routen für jede Zone hinzu
+        buttons = []
+        trace_zone_list = []  # Liste, um die Sichtbarkeit der Spuren zu verwalten
+        for zone, items in items_by_zone.items():
+            # Artikelpositionen
+            x_positions = [item.row for item in items]  # Row wird jetzt x-Achse
+            y_positions = [item.aisle for item in items]  # Aisle wird jetzt y-Achse
+            item_ids = [item.id for item in items]
+
+            # Scatter-Plot für Artikel
+            fig.add_trace(
+                go.Scatter(
+                    x=x_positions,
+                    y=y_positions,
+                    mode="markers",
+                    marker=dict(size=5, color="blue"),
+                    text=item_ids,
+                    name=f"{zone} Items",
+                    visible=False,  # Standardmäßig unsichtbar
+                )
+            )
+            trace_zone_list.append(zone)  # Standardmäßig unsichtbar
+
+        color_index = 0  # Index für die Farben
+        # Routen
+        for batch_number,batch in enumerate(self.batches):
+            for pick_number,picklist in enumerate(batch.picklists):      
+                conveyor = WarehouseItem("conveyor", 0, 0, None, picklist[0].zone)
+                route_x=[conveyor.row]
+                route_y=[conveyor.aisle]
+                item_x=[conveyor.row]
+                item_y=[conveyor.aisle]
+                item_number=["conveyor"]
+                for number,item in enumerate(picklist):
+                    if item.zone != conveyor.zone:
+                        logger.warning(f"Item {item.id} is not in zone {conveyor.zone}. Skipping.")
+                        continue
+                    if(item_y[-1] == item.aisle):
+                        route_x.append(item.row)
+                        route_y.append(item.aisle)
+                    else:
+                        if((item_x[-1]+item.row)/2)>25:
+                            route_x.extend([50,50,item.row])
+                            route_y.extend([item_y[-1],item.aisle,item.aisle])
+                        elif((item_x[-1]+item.row)/2)<-25:
+                            route_x.extend([-50,-50,item.row])
+                            route_y.extend([item_y[-1],item.aisle,item.aisle])
+                        else:
+                            route_x.extend([0,0,item.row])
+                            route_y.extend([item_y[-1],item.aisle,item.aisle])
+                    item_x.append(item.row)
+                    item_y.append(item.aisle)
+                    item_number.append(number+1)
+                    
+                route_x = route_x + [conveyor.row, conveyor.row]
+                route_y = route_y + [route_y[-1], conveyor.aisle]
+
+                # Wähle die aktuelle Farbe und inkrementiere den Index
+                color = colors[color_index % len(colors)]
+                color_index += 1
+
+                fig.add_traces([
+                    go.Scatter(
+                        x=route_x,
+                        y=route_y,
+                        mode="lines",
+                        line=dict(width=2,color=color),
+                        name=f"Route Batch {batch_number} cost:{self.picklist_cost(picklist)}",
+                        visible=False,  # Standardmäßig unsichtbar
+                        legendgroup=f"Batch {batch_number}, Picklist {pick_number}",
+                        legendgrouptitle_text=f"Batch {batch_number}, Picklist {pick_number}",
+                    ),
+                    go.Scatter(
+                        x=item_x,
+                        y=item_y,
+                        mode="markers+text",
+                        marker=dict(size=6, color=color),
+                        text=item_number,
+                        textposition="top center",
+                        name=f"Items Batch {batch_number} ",
+                        visible=False,  # Standardmäßig unsichtbar
+                        legendgroup=f"Batch {batch_number}, Picklist {pick_number}",
+                        legendgrouptitle_text=f"Batch {batch_number}, Picklist {pick_number}",
+                )]
+                )
+                
+                trace_zone_list.extend([conveyor.zone,conveyor.zone]) 
+
+        
+        for zone in sorted_zones:
+            # Dropdown-Button für die aktuelle Zone
+            zone_visibility = [num == zone for num in trace_zone_list]
+            buttons.append(
+                dict(
+                    label=f"{zone}",
+                    method="update",
+                    args=[
+                        {"visible": zone_visibility},
+                        {"title": f"Warehouse Visualization {self.id}- {zone}"},
+                    ],
+                )
+            )
+
+        # Dropdown-Menü hinzufügen
+        fig.update_layout(
+            updatemenus=[
+                dict(
+                    active=0,
+                    buttons=buttons,
+                    direction="down",
+                    showactive=True,
+                )
+            ]
+        )
+
+        # Layout-Einstellungen
+        fig.update_layout(
+        title=f"Warehouse Visualization {self.id}",
+        xaxis=dict(title="Row", range=[-50, 50]),  # X-Achse von -50 bis 50
+        yaxis=dict(title="Aisle", range=[-50, 50]),  # Y-Achse von -50 bis 50
+        showlegend=True,
+        )
+
+        # Zeige die Grafik
+        fig.show()

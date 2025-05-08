@@ -21,7 +21,9 @@ def run(instanceDirectory, instance, solutionApproach) -> None:
     instance = Instance(path)
     instance.read(path)
     logger.info("Creating batches")
-    instance.batches = greedy_solver(instance, choose_random_order=solutionApproach == "rdga")
+    
+    ###### hier kann ihr Algorithmus eingefügt werden
+    instance.batches = greedy_solver(instance, "rdga")
     logger.info("batches created")
     time_elapsed = round(time.time() - start_time)
     logger.info("Evaluating results")
