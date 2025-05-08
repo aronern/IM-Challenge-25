@@ -69,7 +69,9 @@ def find_best_order(
     return min((*distance_per_item(order), order) for order in remaining_orders)
 
 
-def greedy_solver(instance: Instance, choose_random_order=False) -> List[Batch]:
+def greedy_solver(instance: Instance, algorithm: str) -> List[Batch]:
+    
+    choose_random_order = algorithm == "rdga"
     item_goal = instance.parameters.min_number_requested_items
     remaining_orders = set(instance.orders.copy())
 
