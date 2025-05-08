@@ -133,15 +133,19 @@ class Instance:
                 for order in self.orders
             ],
             parameters=self.parameters.__dict__,
-            batches=[
-                {
-                    "picklists": [
-                        [item.id for item in picklist] for picklist in batch.picklists
-                    ],
-                    "orders": [order.id for order in batch.orders],
-                }
-                for batch in self.batches
-            ],
+            batches={
+                "instance": self.id.split("/")[-1],
+                "batches":
+                [
+                    {
+                        "picklists": [
+                            [item.id for item in picklist] for picklist in batch.picklists
+                        ],
+                        "orders": [order.id for order in batch.orders],
+                    }
+                    for batch in self.batches
+                ]
+            },
             stats=self.stats,
         )
 
@@ -392,7 +396,7 @@ class Instance:
                     method="update",
                     args=[
                         {"visible": zone_visibility},
-                        {"title": f"Warehouse Visualization {self.id}- {zone}"},
+                        {"title": f"Warehouse Visualization {self.id.split("/")[-1]} - {zone}"},
                     ],
                 )
             )
@@ -411,10 +415,24 @@ class Instance:
 
         # Layout-Einstellungen
         fig.update_layout(
-        title=f"Warehouse Visualization {self.id}",
-        xaxis=dict(title="Row", range=[-50, 50]),  # X-Achse von -50 bis 50
-        yaxis=dict(title="Aisle", range=[-50, 50]),  # Y-Achse von -50 bis 50
-        showlegend=True,
+            title=f"Warehouse Visualization {self.id.split('/')[-1]}",
+            xaxis=dict(title="Row", range=[-50, 50]),  # X-Achse von -50 bis 50
+            yaxis=dict(title="Aisle", range=[-50, 50]),  # Y-Achse von -50 bis 50
+            showlegend=True,
+            annotations=[
+                dict(
+                    x=0.8,  # Horizontale Position (zentriert über den Buttons)
+                    y=1,  # Vertikale Position (oberhalb der Buttons)
+                    xref="paper",
+                    yref="paper",
+                    xanchor="right",
+                    yanchor="bottom",
+                    text=f"<b>Stats:</b><br>{'<br>'.join([f'{key}: {value}' for key, value in self.stats.items()])}",
+                    showarrow=False,
+                    align="left",
+                    font=dict(size=12),
+                )
+            ],
         )
 
         # Zeige die Grafik

@@ -37,7 +37,7 @@ def find_best_order(
     selected_items: List[WarehouseItem],
     warehouse_items: Dict[Article, Set[WarehouseItem]],
     instance: Instance,
-) -> (float, List[WarehouseItem], Order):
+    ) -> (float, List[WarehouseItem], Order):
     selected_items_by_zone = {
         zone: [WarehouseItem("conveyor", 0, 0, None, zone)] for zone in instance.zones
     }
