@@ -17,7 +17,7 @@ def generate_instance(path, parameters):
     nbr_aisles = 100
 
     logger.info(f"Creating instance: {path}")
-    instance = Instance()
+    instance = Instance(path)
 
     assert (
         parameters["nbr_warehouse_items"] >= 2 * parameters["nbr_orders"]

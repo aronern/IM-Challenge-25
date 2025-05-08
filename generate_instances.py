@@ -13,55 +13,42 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 parameters = {
-    "small": {
+    "tiny":{
+        "nbr_warehouse_items": 100,
+        "nbr_orders": 10,
+        "nbr_zones": 1,
+        },
+    "small":{
+        "nbr_warehouse_items": 1_000,
+        "nbr_orders": 50,
+        "nbr_zones": 5,
+    },
+    "medium": {
         "nbr_warehouse_items": 10_000,
         "nbr_orders": 500,
         "nbr_zones": 10,
     },
-    "medium": {
+    "large": {
         "nbr_warehouse_items": 100_000,
         "nbr_orders": 5_000,
         "nbr_zones": 50,
     },
-    "large": {
+    "huge": {
         "nbr_warehouse_items": 1_000_000,
         "nbr_orders": 50_000,
         "nbr_zones": 100,
     },
 }
 
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "-n",
-    "--nbr_instances",
-    type=int,
-    help="Number of instances per type",
-    default=5,
-)
-parser.add_argument(
-    "-t",
-    "--instance-types",
-    type=str,
-    help="Directory for writing instances",
-    nargs="+",
-    default=parameters.keys(),
-    choices=parameters.keys(),
-)
-parser.add_argument(
-    "-d",
-    "--dir",
-    type=str,
-    help="Directory for writing instances",
-    default="instances",
-)
+
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
     r.seed(1)
-    os.system(f"mkdir -p {args.dir}")
+    os.makedirs(args.dir, exist_ok=True)
     for size in args.instance_types:
         for nbr in range(args.nbr_instances):
             path = f"{args.dir}/{size}-{nbr}"
-            os.system(f"mkdir -p {path}")
+            os.makedirs(path, exist_ok=True)
             generate_instance(path, parameters[size])

@@ -3,9 +3,7 @@ import time
 import logging
 
 from batching_problem.definitions import Instance
-from generate_instances import parser
 from distance_greedy_algorithm.solver import greedy_solver
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,36 +13,34 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run(args, name) -> None:
-    path = f"{args.dir}/{name}"
-    logger.info(f"Running algorithm for {name} instance")
+def run(instanceDirectory, instance, solutionApproach) -> None:
+    path = f"{instanceDirectory}/{instance}"
+    logger.info(f"Running algorithm for {instance} instance")
     start_time = time.time()
     logger.info("Reading instance")
-    instance = Instance()
+    instance = Instance(path)
     instance.read(path)
     logger.info("Creating batches")
-    instance.batches = greedy_solver(instance, choose_random_order=args.algo == "rdga")
+    instance.batches = greedy_solver(instance, choose_random_order=solutionApproach == "rdga")
     logger.info("batches created")
     time_elapsed = round(time.time() - start_time)
     logger.info("Evaluating results")
     instance.evaluate(time_elapsed)
+    logger.info("Visualize Results")
+    instance.plot_warehouse()
     logger.info("writing results")
     instance.store_result(path)
-    logger.info(f"Results for {name} computed and stored.")
+    logger.info(f"Results for {instance} computed and stored.")
+    pass
 
 
 if __name__ == "__main__":
-    parser.add_argument(
-        "-a",
-        "--algo",
-        help="Specify algorithm: Distance Greedy Algorithm (dga) or Randomized DGA (rdga)",
-        default="dga",
-        choices=["dga", "rdga"],
-    )
+    instanceDirectory = "instances"  # Verzeichnis von den Instanzen
+    instancesToSolve=["tiny-0","small-0","medium-0"]   # auszuführende Instanzen angeben
+    solutionApproach = "dga"  # Algorithmus, der verwendet werden soll 
 
     random.seed(1)
-    args = parser.parse_args()
 
-    for size in args.instance_types:
-        for nbr in range(args.nbr_instances):
-            run(args, f"{size}-{nbr}")
+    for instance in instancesToSolve:
+            run(instanceDirectory, instance, solutionApproach)
+
