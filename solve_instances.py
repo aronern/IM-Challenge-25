@@ -23,6 +23,8 @@ def run(instanceDirectory, instance, solutionApproach) -> None:
     logger.info("Creating batches")
     
     ###### hier kann ihr Algorithmus eingefügt werden
+
+
     instance.batches = greedy_solver(instance, "rdga")
     logger.info("batches created")
     time_elapsed = round(time.time() - start_time)
@@ -32,7 +34,7 @@ def run(instanceDirectory, instance, solutionApproach) -> None:
     instance.plot_warehouse()
     logger.info("writing results")
     instance.store_result(path)
-    logger.info(f"Results for {instance} computed and stored.")
+    logger.info(f"Results for {instance.id} computed and stored.")
     pass
 
 

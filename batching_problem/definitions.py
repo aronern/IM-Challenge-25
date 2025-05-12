@@ -176,42 +176,80 @@ class Instance:
 
         self.zones = list(set(item.zone for item in self.warehouse_items))
 
+    def read_batches(self,path):
+        with open(f"{path}", "r") as file:
+            solution_file = json.load(file)
+            batches = solution_file["batches"]
+            for batch in batches:
+                picklists = []
+                for picklist in batch["picklists"]:
+                    picklist_items = [
+                        next(item for item in self.warehouse_items if item.id == picklist_id)
+                        for picklist_id in picklist
+                    ]
+                    picklists.append(picklist_items)
+                orders = [
+                    order
+                    for order in self.orders
+                    if order.id in batch["orders"]
+                ]
+                self.batches.append(Batch(orders, picklists))
+
     def check_feasibility(self) -> bool:
+        is_valid = True
         if (
             sum(len(picklist) for batch in self.batches for picklist in batch.picklists)
             < self.parameters.min_number_requested_items
         ):
-            logger.warning("Fewer items than requested")
-            return False
+            logger.warning(f"Fewer items than requested! Min Requested: {self.parameters.min_number_requested_items} Picked: {sum(len(picklist) for batch in self.batches for picklist in batch.picklists)}")
+            is_valid = False
 
-        for batch in self.batches:
+        for batch_number, batch in enumerate(self.batches):
             if len(batch.orders) > self.parameters.max_orders_per_batch:
-                logger.warning("Batch exceeds max commissions limit!")
-                return False
+                logger.warning(f"Batch {batch_number} exceeds max commissions limit! Orders:{len(batch.orders)} permitted:{self.parameters.max_orders_per_batch}")
+                is_valid = False
 
             articles = [
                 article.id for order in batch.orders for article in order.positions
             ]
-            picklist_articles = [
-                item.article.id for picklist in batch.picklists for item in picklist
-            ]
-            if sorted(articles) != sorted(picklist_articles):
-                logger.warning(
-                    "requested and assigned articles for some orders in this batch do not match!"
-                )
-                return False
+
+            count_dict = {}
+            for article in articles:
+                if article not in count_dict:
+                    count_dict[article] = 0
+                count_dict[article] += 1
 
             for picklist in batch.picklists:
+                for item in picklist:
+                    if item.article.id not in count_dict:
+                        logger.warning(
+                            f"Article {item.article.id} in picklist not in orders of Batch {batch_number}!"
+                        )
+                        is_valid = False
+                    count_dict[item.article.id] -= 1
+                    if count_dict[item.article.id] < 0:
+                        logger.warning(
+                            f"Article {item.article.id} picked more than ordered in Batch {batch_number}!"
+                        )
+                        is_valid = False
+            for article, count in count_dict.items():
+                if count > 0:
+                    logger.warning(
+                        f"Article {article} ordered in Batch {batch_number} but not picked! More needed: {count}"
+                    )
+                    is_valid = False
+
+            for num_picklist,picklist in enumerate(batch.picklists):
                 if len(set(item.zone for item in picklist)) > 1:
-                    logger.warning("picklist contains items of multiple zones!")
-                    return False
+                    logger.warning(f"picklist {num_picklist} from order {batch_number} contains items of multiple zones!")
+                    is_valid = False
                 if (
                     sum(item.article.volume for item in picklist)
                     > self.parameters.max_container_volume
                 ):
-                    logger.warning("Container volume exceeds limit")
-                    return False
-        return True
+                    logger.warning(f"picklist {num_picklist} from order {batch_number} exceeds Container volume limit! Volume:{sum(item.article.volume for item in picklist)} permitted:{self.parameters.max_container_volume}")
+                    is_valid = False
+        return is_valid
 
     @staticmethod
     def aisle_distance(u: int, v: int):
@@ -305,7 +343,7 @@ class Instance:
             # Artikelpositionen
             x_positions = [item.row for item in items]  # Row wird jetzt x-Achse
             y_positions = [item.aisle for item in items]  # Aisle wird jetzt y-Achse
-            item_ids = [item.id for item in items]
+            item_ids = [f"{item.id} - {item.article.id}" for item in items] 
 
             # Scatter-Plot für Artikel
             fig.add_trace(
@@ -339,14 +377,14 @@ class Instance:
                         route_x.append(item.row)
                         route_y.append(item.aisle)
                     else:
-                        if((item_x[-1]+item.row)/2)>25:
-                            route_x.extend([50,50,item.row])
+                        if((item_x[-1]+item.row)/2)>(conveyor.row + self.parameters.last_row)/2:
+                            route_x.extend([self.parameters.last_row,self.parameters.last_row,item.row])
                             route_y.extend([item_y[-1],item.aisle,item.aisle])
-                        elif((item_x[-1]+item.row)/2)<-25:
-                            route_x.extend([-50,-50,item.row])
+                        elif((item_x[-1]+item.row)/2)<(conveyor.row+self.parameters.first_row)/2:
+                            route_x.extend([self.parameters.first_row,self.parameters.first_row,item.row])
                             route_y.extend([item_y[-1],item.aisle,item.aisle])
                         else:
-                            route_x.extend([0,0,item.row])
+                            route_x.extend([conveyor.row,conveyor.row,item.row])
                             route_y.extend([item_y[-1],item.aisle,item.aisle])
                     item_x.append(item.row)
                     item_y.append(item.aisle)
@@ -365,7 +403,7 @@ class Instance:
                         y=route_y,
                         mode="lines",
                         line=dict(width=2,color=color),
-                        name=f"Route Batch {batch_number} cost:{self.picklist_cost(picklist)}",
+                        name=f"Route Batch {batch_number} cost:{self.picklist_cost(picklist)} volume:{sum(item.article.volume for item in picklist)}",
                         visible=False,  # Standardmäßig unsichtbar
                         legendgroup=f"Batch {batch_number}, Picklist {pick_number}",
                         legendgrouptitle_text=f"Batch {batch_number}, Picklist {pick_number}",
@@ -377,13 +415,12 @@ class Instance:
                         marker=dict(size=6, color=color),
                         text=item_number,
                         textposition="top center",
-                        name=f"Items Batch {batch_number} ",
+                        name=f"Items Batch {batch_number} Picklist {pick_number}",
                         visible=False,  # Standardmäßig unsichtbar
                         legendgroup=f"Batch {batch_number}, Picklist {pick_number}",
                         legendgrouptitle_text=f"Batch {batch_number}, Picklist {pick_number}",
                 )]
                 )
-                
                 trace_zone_list.extend([conveyor.zone,conveyor.zone]) 
 
         
@@ -416,8 +453,8 @@ class Instance:
         # Layout-Einstellungen
         fig.update_layout(
             title=f"Warehouse Visualization {self.id.split('/')[-1]}",
-            xaxis=dict(title="Row", range=[-50, 50]),  # X-Achse von -50 bis 50
-            yaxis=dict(title="Aisle", range=[-50, 50]),  # Y-Achse von -50 bis 50
+            xaxis=dict(title="Row", range=[self.parameters.first_row-1, self.parameters.last_row+1]),  # X-Achse von -50 bis 50
+            yaxis=dict(title="Aisle", range=[self.parameters.first_aisle-1, self.parameters.last_aisle+1]),  # Y-Achse von -50 bis 50
             showlegend=True,
             annotations=[
                 dict(
