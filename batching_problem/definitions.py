@@ -7,26 +7,6 @@ import plotly.subplots as sp
 
 logger = logging.getLogger(__name__)
 
-
-class InstanceEncoder(json.JSONEncoder):
-    def default(self, o):
-        if type(o) == WarehouseItem:
-            ret = o.__dict__
-            ret["article"] = o.article.id
-            return ret
-        elif type(o) == Order:
-            ret = o.__dict__
-            ret["positions"] = [pos.id for pos in o.positions]
-            return ret
-        elif type(o) == Batch:
-            ret = o.__dict__
-            ret["picklists"] = [
-                [item.id for item in picklist] for picklist in o.picklists
-            ]
-            ret["orders"] = [order.id for order in o.orders]
-        return o.__dict__
-
-
 class Article:
     id: str
     volume: float
@@ -341,8 +321,8 @@ class Instance:
         trace_zone_list = []  # Liste, um die Sichtbarkeit der Spuren zu verwalten
         for zone, items in items_by_zone.items():
             # Artikelpositionen
-            x_positions = [item.row for item in items]  # Row wird jetzt x-Achse
-            y_positions = [item.aisle for item in items]  # Aisle wird jetzt y-Achse
+            x_positions = [item.aisle for item in items]
+            y_positions = [item.row for item in items]
             item_ids = [f"{item.id} - {item.article.id}" for item in items] 
 
             # Scatter-Plot für Artikel
@@ -364,34 +344,34 @@ class Instance:
         for batch_number,batch in enumerate(self.batches):
             for pick_number,picklist in enumerate(batch.picklists):      
                 conveyor = WarehouseItem("conveyor", 0, 0, None, picklist[0].zone)
-                route_x=[conveyor.row]
-                route_y=[conveyor.aisle]
-                item_x=[conveyor.row]
-                item_y=[conveyor.aisle]
+                route_x=[conveyor.aisle]
+                route_y=[conveyor.row]
+                item_x=[conveyor.aisle]
+                item_y=[conveyor.row]
                 item_number=["conveyor"]
                 for number,item in enumerate(picklist):
                     if item.zone != conveyor.zone:
                         logger.warning(f"Item {item.id} is not in zone {conveyor.zone}. Skipping.")
                         continue
-                    if(item_y[-1] == item.aisle):
-                        route_x.append(item.row)
-                        route_y.append(item.aisle)
+                    if(item_x[-1] == item.aisle):
+                        route_x.append(item.aisle)
+                        route_y.append(item.row)
                     else:
-                        if((item_x[-1]+item.row)/2)>(conveyor.row + self.parameters.last_row)/2:
-                            route_x.extend([self.parameters.last_row,self.parameters.last_row,item.row])
-                            route_y.extend([item_y[-1],item.aisle,item.aisle])
-                        elif((item_x[-1]+item.row)/2)<(conveyor.row+self.parameters.first_row)/2:
-                            route_x.extend([self.parameters.first_row,self.parameters.first_row,item.row])
-                            route_y.extend([item_y[-1],item.aisle,item.aisle])
+                        if((item_y[-1]+item.row)/2)>(conveyor.row + self.parameters.last_row)/2:
+                            route_x.extend([item_x[-1],item.aisle,item.aisle])
+                            route_y.extend([self.parameters.last_row,self.parameters.last_row,item.row])
+                        elif((item_y[-1]+item.row)/2)<(conveyor.row+self.parameters.first_row)/2:
+                            route_x.extend([item_x[-1],item.aisle,item.aisle])
+                            route_y.extend([self.parameters.first_row,self.parameters.first_row,item.row])
                         else:
-                            route_x.extend([conveyor.row,conveyor.row,item.row])
-                            route_y.extend([item_y[-1],item.aisle,item.aisle])
-                    item_x.append(item.row)
-                    item_y.append(item.aisle)
+                            route_x.extend([item_x[-1],item.aisle,item.aisle])
+                            route_y.extend([conveyor.row,conveyor.row,item.row])   
+                    item_x.append(item.aisle)
+                    item_y.append(item.row)
                     item_number.append(number+1)
                     
-                route_x = route_x + [conveyor.row, conveyor.row]
-                route_y = route_y + [route_y[-1], conveyor.aisle]
+                route_x = route_x + [route_x[-1], conveyor.aisle]
+                route_y = route_y + [conveyor.row, conveyor.row]
 
                 # Wähle die aktuelle Farbe und inkrementiere den Index
                 color = colors[color_index % len(colors)]
@@ -414,7 +394,7 @@ class Instance:
                         mode="markers+text",
                         marker=dict(size=6, color=color),
                         text=item_number,
-                        textposition="top center",
+                        textposition="middle right",
                         name=f"Items Batch {batch_number} Picklist {pick_number}",
                         visible=False,  # Standardmäßig unsichtbar
                         legendgroup=f"Batch {batch_number}, Picklist {pick_number}",
@@ -453,8 +433,8 @@ class Instance:
         # Layout-Einstellungen
         fig.update_layout(
             title=f"Warehouse Visualization {self.id.split('/')[-1]}",
-            xaxis=dict(title="Row", range=[self.parameters.first_row-1, self.parameters.last_row+1]),  # X-Achse von -50 bis 50
-            yaxis=dict(title="Aisle", range=[self.parameters.first_aisle-1, self.parameters.last_aisle+1]),  # Y-Achse von -50 bis 50
+            xaxis=dict(title="Aisle", range=[self.parameters.first_aisle-1, self.parameters.last_aisle+1]),  # X-Achse von -50 bis 50
+            yaxis=dict(title="Row", range=[self.parameters.first_row-1, self.parameters.last_row+1]),  # Y-Achse von -50 bis 50
             showlegend=True,
             annotations=[
                 dict(

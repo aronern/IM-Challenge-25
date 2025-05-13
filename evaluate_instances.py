@@ -27,3 +27,4 @@ if __name__ == "__main__":
         instance.evaluate(-1) # Lösungszeit nicht überprüfbar
         logger.info("Visualize Results")
         instance.plot_warehouse()
+    pass
