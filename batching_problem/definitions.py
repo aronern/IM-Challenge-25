@@ -184,6 +184,15 @@ class Instance:
             logger.warning(f"Fewer items than requested! Min Requested: {self.parameters.min_number_requested_items} Picked: {sum(len(picklist) for batch in self.batches for picklist in batch.picklists)}")
             is_valid = False
 
+        # Überprüfung: Alle Picklist-Items in einer Liste sammeln
+        all_picklist_items = [item.id for batch in self.batches for picklist in batch.picklists for item in picklist]
+
+        # Überprüfung auf Duplikate
+        duplicate_items = {item for item in all_picklist_items if all_picklist_items.count(item) > 1}
+        if duplicate_items:
+            logger.warning(f"Duplicate WarehouseItem IDs found in picklists: {duplicate_items}")
+            is_valid = False
+
         for batch_number, batch in enumerate(self.batches):
             if len(batch.orders) > self.parameters.max_orders_per_batch:
                 logger.warning(f"Batch {batch_number} exceeds max commissions limit! Orders:{len(batch.orders)} permitted:{self.parameters.max_orders_per_batch}")
@@ -454,3 +463,4 @@ class Instance:
 
         # Zeige die Grafik
         fig.show()
+        #fig.write_html(f"visualization_{self.id.split('/')[-1]}.html")
